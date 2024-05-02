@@ -1,0 +1,53 @@
+%%sh
+
+cat > mtc.c << EOF
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+#include <math.h>
+#include <time.h>
+
+#define MASTER_RANK 0
+
+int main(int argc, char *argv[]) {
+  int rank, size;
+  long long int total_points = 10000000000;
+  long long int points_inside_circle = 0;
+  long long int local_points_inside_circle = 0;
+  double x,y, distance;
+
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+
+  srand(time(NULL) + rank);
+
+  for (long long int i=0; i< total_points / size; i++){
+    x = (double)rand() / RAND_MAX;
+    y = (double)rand() / RAND_MAX;
+
+    distance = sqrt((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5));
+
+    if(distance <= 0.5) {
+      local_points_inside_circle++;
+
+    }
+  }
+
+//REDUCE the local points inside the circle to reduce total count
+  MPI_Reduce(&local_points_inside_circle, &points_inside_circle, 1, MPI_LONG_LONG_INT, MPI_SUM, MASTER_RANK, MPI_COMM_WORLD);
+
+  //BELOW PROCESS CALCULATE ESTIMATION OF PI VALUE
+  if(rank == MASTER_RANK) {
+    double pi_estimate = 4.0 * points_inside_circle / total_points;
+    printf("Estimated value of Pi: %f\n", pi_estimate);
+
+  }
+  MPI_Finalize();
+
+  return 0;
+}
+
+
+!mpicc mtc.c -o mtc -lm && mpirun -n 4 --allow-run-as-root --oversubscribe ./mtc

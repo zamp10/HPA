@@ -1,0 +1,61 @@
+%%cuda
+#include <stdio.h>
+
+#define N 1000 // 1000 particles
+#define DT 0.001
+#define BLOCK_SIZE 256
+
+// Function to print particle positions
+void printParticle(int idx, float *positions) {
+    printf("Particle %d: (%f, %f, %f)\n", idx, positions[3 * idx], positions[3 * idx + 1], positions[3 * idx + 2]);
+}
+
+// Function to compute the force field (example)
+void computeForceField(float *positions, float *externalForces) {
+    // Example force field: constant force in the z-direction
+    for (int i = 0; i < N; i++) {
+        externalForces[3 * i] = 0.0; // x-component
+        externalForces[3 * i + 1] = 0.0; // y-component
+        externalForces[3 * i + 2] = 10; // z-component (constant force in the negative z-direction)
+    }
+}
+
+int main() {
+    float *h_positions, *h_velocities, *h_externalForces;
+    float *d_positions, *d_velocities, *d_externalForces;
+
+    // Allocate memory on host
+    h_positions = (float*)malloc(N * 3 * sizeof(float));
+    h_velocities = (float*)malloc(N * 3 * sizeof(float));
+    h_externalForces = (float*)malloc(N * 3 * sizeof(float));
+
+    // Initialize particle positions and velocities
+    for (int i = 0; i < N; i++) {
+        // Initialize positions
+        h_positions[3 * i] = 0.123456 + 0.001 * i; // x-coordinate
+        h_positions[3 * i + 1] = 0.234567 + 0.001 * i; // y-coordinate
+        h_positions[3 * i + 2] = 0.3456789 + 0.001 * i; // z-coordinate
+
+        // Initialize velocities
+        h_velocities[3 * i] = 0.0; // x-component
+        h_velocities[3 * i + 1] = 0.0; // y-component
+        h_velocities[3 * i + 2] = 0.0; // z-component
+    }
+
+    // Compute external force field
+    computeForceField(h_positions, h_externalForces);
+
+    // Print particle positions
+    for (int i = 0; i < N; i++) {
+        printParticle(i, h_positions);
+    }
+
+    // Other parts of the code remain the same...
+
+    // Free host memory
+    free(h_positions);
+    free(h_velocities);
+    free(h_externalForces);
+
+    return 0;
+}
