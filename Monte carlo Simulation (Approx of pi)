@@ -6,9 +6,9 @@
 #define BLOCK_SIZE 256
 #define NUM_SAMPLES (NUM_BLOCKS * BLOCK_SIZE)
 
-__global__ void monteCarloPi(float *estimation, unsigned int seed) {
-    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    unsigned int num_inside_circle = 0;
+__global__ void monteCarloPi(float *estimation, int seed) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int num_inside_circle = 0;
     curandState state;
     curand_init(seed, tid, 0, &state);
 
