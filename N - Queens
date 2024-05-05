@@ -1,19 +1,17 @@
 %%cuda
+
 #include <stdio.h>
 #define N 10
 
 __device__ int isSafe(int board[N][N], int row, int col) {
-    // Check this row on left side
     for (int i = 0; i < col; i++)
         if (board[row][i])
             return 0;
 
-    // Check upper diagonal on left side
     for (int i = row, j = col; i >= 0 && j >= 0; i--, j--)
         if (board[i][j])
             return 0;
 
-    // Check lower diagonal on left side
     for (int i = row, j = col; j >= 0 && i < N; i++, j--)
         if (board[i][j])
             return 0;
@@ -22,22 +20,15 @@ __device__ int isSafe(int board[N][N], int row, int col) {
 }
 
 __device__ int solveNQueensUtil(int board[N][N], int col) {
-    // All queens are placed
     if (col == N)
         return 1;
 
     int res = 0;
 
-    // Try placing this queen in all rows
     for (int i = 0; i < N; i++) {
         if (isSafe(board, i, col)) {
-            board[i][col] = 1;  // Place queen
-
-            // Recur to place rest of the queens
+            board[i][col] = 1;
             res += solveNQueensUtil(board, col + 1);
-
-            // If placing queen in the current row doesn't lead to a solution,
-            // then remove the queen from the current cell (backtrack)
             board[i][col] = 0;
         }
     }
@@ -53,16 +44,10 @@ __global__ void solveNQueens(int *count) {
 int main() {
     int *d_count;
     cudaMalloc((void **)&d_count, sizeof(int));
-
-    // Launch kernel
     solveNQueens<<<1, 1>>>(d_count);
-
     int h_count;
     cudaMemcpy(&h_count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
-
     printf("Number of solutions for N-Queens: %d\n", h_count);
-
     cudaFree(d_count);
-
     return 0;
 }
