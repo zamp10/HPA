@@ -15,3 +15,4 @@ int main() {
   return 0;
 }
 EOF
+!gcc -fopenmp codeopenmp.c && ./a.out
