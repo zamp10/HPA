@@ -1,4 +1,5 @@
 %%cuda
+
 #include <stdio.h>
 
 #define NUM_BINS 256
@@ -6,9 +7,8 @@
 
 __global__ void computeHistogram(const unsigned char *data, int size, int *histogram) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < size) {
+    if (tid < size)
         atomicAdd(&histogram[data[tid]], 1);
-    }
 }
 
 int main() {
@@ -20,9 +20,8 @@ int main() {
     h_data = (unsigned char *)malloc(SIZE * sizeof(unsigned char));
     h_histogram = (int *)calloc(NUM_BINS, sizeof(int));
 
-    for (int i = 0; i < SIZE; ++i) {
+    for (int i = 0; i < SIZE; ++i)
         h_data[i] = rand() % NUM_BINS;
-    }
 
     cudaMalloc((void **)&d_data, SIZE * sizeof(unsigned char));
     cudaMalloc((void **)&d_histogram, NUM_BINS * sizeof(int));
@@ -38,9 +37,8 @@ int main() {
     cudaMemcpy(h_histogram, d_histogram, NUM_BINS * sizeof(int), cudaMemcpyDeviceToHost);
 
     printf("Histogram:\n");
-    for (int i = 0; i < NUM_BINS; ++i) {
+    for (int i = 0; i < NUM_BINS; ++i)
         printf("%d: %d\n", i, h_histogram[i]);
-    }
 
     free(h_data);
     free(h_histogram);
