@@ -1,107 +1,71 @@
 %%cuda
-
 #include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+#include <stdlib.h> // for rand() and srand()
+#include <time.h>   // for time()
 
-#define N 8 // Maximum size of the input array
+#define NUM_BINS 256 // Number of bins in the histogram
+#define BLOCK_SIZE 256 // Threads per block
 
-// Complex number structure
-typedef struct {
-    float real;
-    float imag;
-} Complex;
+__global__ void computeHistogram(int *data, int *histogram, int size) {
+    __shared__ int hist[NUM_BINS];
 
-// Function to compute the FFT recursively
-__device__ void fft(Complex* input, Complex* output, int stride, int size) {
-    if (size == 1) {
-        output[stride] = input[0];
-        return;
+    // Initialize shared histogram bins to 0
+    if (threadIdx.x < NUM_BINS) {
+        hist[threadIdx.x] = 0;
     }
+    __syncthreads();
 
-    // Allocate memory for even and odd indexed elements
-    Complex *even = (Complex*)malloc(size / 2 * sizeof(Complex));
-    Complex *odd = (Complex*)malloc(size / 2 * sizeof(Complex));
-
-    // Divide input into even and odd indexed elements
-    for (int i = 0; i < size / 2; ++i) {
-        even[i] = input[2 * i];
-        odd[i] = input[2 * i + 1];
+    // Increment corresponding histogram bin
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < size) {
+        atomicAdd(&hist[data[tid]], 1);
     }
+    __syncthreads();
 
-    // Recursive FFT on even and odd indexed elements
-    fft(even, output, stride, size / 2);
-    fft(odd, output, stride + size / 2, size / 2);
-
-    // Combine the results
-    for (int i = 0; i < size / 2; ++i) {
-        float angle = -2 * M_PI * i / size;
-        float cos_angle = cos(angle);
-        float sin_angle = sin(angle);
-
-        Complex twiddle;
-        twiddle.real = cos_angle;
-        twiddle.imag = sin_angle * -1;
-
-        Complex product;
-        product.real = twiddle.real * odd[i].real - twiddle.imag * odd[i].imag;
-        product.imag = twiddle.real * odd[i].imag + twiddle.imag * odd[i].real;
-
-        output[stride + i].real = even[i].real + product.real;
-        output[stride + i].imag = even[i].imag + product.imag;
-
-        output[stride + i + size / 2].real = even[i].real - product.real;
-        output[stride + i + size / 2].imag = even[i].imag - product.imag;
+    // Update global histogram
+    if (threadIdx.x < NUM_BINS) {
+        atomicAdd(&histogram[threadIdx.x], hist[threadIdx.x]);
     }
-
-    // Free dynamically allocated memory
-    free(even);
-    free(odd);
-}
-
-// Kernel function to compute FFT
-__global__ void computeFFT(int* input, Complex* output, int size) {
-    int tid = threadIdx.x;
-    Complex input_complex[N];
-
-    // Convert input array to complex numbers
-    for (int i = 0; i < size; ++i) {
-        input_complex[i].real = (float)input[i];
-        input_complex[i].imag = 0;
-    }
-
-    // Compute FFT
-    fft(input_complex, output, 0, size);
 }
 
 int main() {
-    int input[N] = {1, 2, 3, 4, 0, 0, 0, 0}; // Input array
-    int* d_input;
-    Complex* d_output;
+    // Seed random number generator
+    srand(time(NULL));
 
-    // Allocate device memory
-    cudaMalloc((void**)&d_input, N * sizeof(int));
-    cudaMalloc((void**)&d_output, N * sizeof(Complex));
+    // Define input data
+    const int size = 10000; // Example size of input data
+    int data[size];
+    for (int i = 0; i < size; ++i) {
+        data[i] = rand() % NUM_BINS; // Generate random data in the range [0, NUM_BINS-1]
+    }
 
-    // Copy input array to device
-    cudaMemcpy(d_input, input, N * sizeof(int), cudaMemcpyHostToDevice);
+    // Allocate device memory for input data and histogram
+    int *d_data, *d_histogram;
+    cudaMalloc((void **)&d_data, size * sizeof(int));
+    cudaMalloc((void **)&d_histogram, NUM_BINS * sizeof(int));
+
+    // Copy input data to device
+    cudaMemcpy(d_data, data, size * sizeof(int), cudaMemcpyHostToDevice);
+
+    // Compute grid and block dimensions
+    int numBlocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     // Launch kernel
-    computeFFT<<<1, 1>>>(d_input, d_output, N);
+    computeHistogram<<<numBlocks, BLOCK_SIZE>>>(d_data, d_histogram, size);
 
-    // Copy result back to host
-    Complex output[N];
-    cudaMemcpy(output, d_output, N * sizeof(Complex), cudaMemcpyDeviceToHost);
+    // Copy histogram from device to host
+    int histogram[NUM_BINS];
+    cudaMemcpy(histogram, d_histogram, NUM_BINS * sizeof(int), cudaMemcpyDeviceToHost);
 
-    // Print FFT result
-    printf("FFT result:\n");
-    for (int i = 0; i < N; ++i) {
-        printf("%f + %fi\n", output[i].real, output[i].imag);
+    // Print histogram
+    printf("Histogram:\n");
+    for (int i = 0; i < NUM_BINS; ++i) {
+        printf("%d: %d\n", i, histogram[i]);
     }
 
     // Free device memory
-    cudaFree(d_input);
-    cudaFree(d_output);
+    cudaFree(d_data);
+    cudaFree(d_histogram);
 
     return 0;
 }
